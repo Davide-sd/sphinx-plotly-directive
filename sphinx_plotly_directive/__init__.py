@@ -92,6 +92,9 @@ The ``plotly`` directive supports the following options:
     iframe-height
         The height of the iframe in which a plotly figure is rendered. The default can be changed
         using the `plotly_iframe_height` variable in :file:`conf.py`.
+    
+    camera : xcam, ycam, zcam, xtarget, ytarget, ztarget, xzvec, yzvec, zzvec
+        Specify the camera settings for the current plot.
 
 Additionally, this directive supports all of the options of the `image`
 directive, except for *target* (since plot will add its own target).  These
@@ -181,6 +184,7 @@ from sphinx_plotly_directive.utils import (
     ends_with_show,
     save_plotly_figure,
     strip_last_line,
+    set_camera_position
 )
 
 
@@ -251,6 +255,16 @@ def mark_plot_labels(app, document):
                     break
 
 
+def get_camera(argument):
+    args = argument.split(",")
+    args = [float(a.strip()) for a in args]
+    if len(args) != 9:
+        raise ValueError(":camera: must be a list of 9 float numbers.\n"
+            "Specifically: [xcam, ycam, zcam, xcent, ycent, zcent, *z_vec]\n"
+            "Received: %s" % args)
+    return args
+
+
 class PlotlyDirective(Directive):
     """The ``.. plotly::`` directive, as documented in the module's docstring."""
 
@@ -274,6 +288,7 @@ class PlotlyDirective(Directive):
         "fig-vars": _option_fig_vars,
         "iframe-width": directives.unchanged,
         "iframe-height": directives.unchanged,
+        "camera": get_camera
     }
 
     def run(self):
@@ -488,7 +503,8 @@ class PlotError(RuntimeError):
     pass
 
 
-def run_code(code, code_path, ns=None, function_name=None, fig_vars=None):
+def run_code(code, code_path, ns=None, function_name=None, fig_vars=None,
+    camera=None):
     """
     Import a Python module from a path, and run the function given by
     name, if function_name is not None.
@@ -559,8 +575,11 @@ def run_code(code, code_path, ns=None, function_name=None, fig_vars=None):
             exec(code, ns)
             figs = [ns[fig_var] for fig_var in fig_vars]
         else:
-            exec(assign_last_line_into_variable(
-                intercept_code(code), variable_name), ns)
+            code = assign_last_line_into_variable(
+                intercept_code(code), variable_name)
+            if camera is not None:
+                code = set_camera_position(code, variable_name, camera)
+            exec(code, ns)
             figs = [ns[variable_name]]
 
     except (Exception, SystemExit) as err:
@@ -600,6 +619,7 @@ def render_figures(
     context_reset=False,
     close_figs=False,
     fig_vars=None,
+    camera=None
 ):
     """
     Run a pyplot script and save the images in *output_dir*.
@@ -673,7 +693,7 @@ def render_figures(
         elif close_figs:
             pass
 
-        fig_objects = run_code(code_piece, code_path, ns, function_name, fig_vars)
+        fig_objects = run_code(code_piece, code_path, ns, function_name, fig_vars, camera=camera)
 
         figures = []
         for j, fig_obj in enumerate(fig_objects):
@@ -821,6 +841,7 @@ def run(arguments, content, options, state_machine, state, lineno):
             context_reset=context_opt == "reset",
             close_figs=context_opt == "close-figs",
             fig_vars=options.get("fig-vars"),
+            camera=options.get("camera", None)
         )
         errors = []
     except PlotError as err:

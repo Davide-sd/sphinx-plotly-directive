@@ -195,3 +195,16 @@ def ends_with_show(code):
     pattern = r"^(.+)\.show\(.*\)$"
     match = re.search(pattern, code.strip().split("\n")[-1], flags=re.DOTALL)
     return bool(match)
+
+
+def set_camera_position(code, variable_name, camera):
+    """Assing the camera position to the correct attribute.
+    """
+    cd = dict(
+        up = dict(x=camera[6], y=camera[7], z=camera[8]),
+        center = dict(x=camera[3], y=camera[4], z=camera[5]),
+        eye = dict(x=camera[0], y=camera[1], z=camera[2]),
+    )
+    code += "\n"
+    code += variable_name + ".update_layout(scene_camera={})".format(cd)
+    return code
