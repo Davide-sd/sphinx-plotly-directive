@@ -10,6 +10,7 @@ from sphinx_plotly_directive.utils import (
     ends_with_show,
     save_plotly_figure,
     strip_last_line,
+    set_camera_position
 )
 
 
@@ -99,3 +100,17 @@ def test_strip_last_line(code, expected_result):
 )
 def test_ends_with_show(code, expected_result):
     assert ends_with_show(code) == expected_result
+
+
+def test_set_camera_position():
+    code = """
+a = 1
+a
+"""
+    camera = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    new_code = set_camera_position(
+        assign_last_line_into_variable(code, "fig"), "fig", camera)
+    assert "fig.update_layout(scene_camera" in new_code
+    assert "'up': {'x': 7, 'y': 8, 'z': 9}" in new_code
+    assert "'center': {'x': 4, 'y': 5, 'z': 6}" in new_code
+    assert "'eye': {'x': 1, 'y': 2, 'z': 3}" in new_code
