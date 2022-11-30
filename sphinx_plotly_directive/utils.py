@@ -7,7 +7,7 @@ import plotly
 INDENT_SPACES = " " * 3
 
 
-def save_plotly_figure(fig, path):
+def save_plotly_figure(fig, path, size=None, scale=1):
     r"""
     Save a Plotly figure.
 
@@ -17,6 +17,8 @@ def save_plotly_figure(fig, path):
         A plotly figure to save.
     path : str
         A file path.
+    size : (width, height)
+    scale : float
 
     Returns
     -------
@@ -37,7 +39,11 @@ def save_plotly_figure(fig, path):
         with open(path, "w") as f:
             f.write(fig_html)
     else:
-        fig.write_image(path)
+        kw = dict(scale=scale)
+        if size is not None:
+            kw["width"] = size[0]
+            kw["height"] = size[1]
+        fig.write_image(path, **kw)
 
 
 def assign_last_line_into_variable(code, variable_name):

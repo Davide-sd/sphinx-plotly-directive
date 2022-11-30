@@ -10,7 +10,9 @@ Welcome to sphinx-plotly-directive's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   plotly_directive.rst
    examples/index
+   changelog.rst
 
 Indices and tables
 ==================

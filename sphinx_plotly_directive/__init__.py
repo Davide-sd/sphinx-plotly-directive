@@ -1,29 +1,29 @@
 """
 Based on: https://matplotlib.org/3.1.3/devel/plot_directive.html
 
-A directive for including a Plotly figure in a Sphinx document
-================================================================
+Usage
+=====
 
-By default, in HTML output, `plot` will include a .png file with a link to a
-high-res .png and .pdf.  In LaTeX output, it will include a .pdf.
+By default, in HTML output, ``plotly`` will include a the interactive plot
+with a link to an .html file.  In LaTeX output, it will include a .pdf.
 
 The source code for the plot may be included in one of three ways:
 
 1. **A path to a source file** as the argument to the directive::
 
-     .. plot:: path/to/plot.py
+     .. plotly:: path/to/plot.py
 
    When a path to a source file is given, the content of the
    directive may optionally contain a caption for the plot::
 
-     .. plot:: path/to/plot.py
+     .. plotly:: path/to/plot.py
 
         The plot's caption.
 
    Additionally, one may specify the name of a function to call (with
    no arguments) immediately after importing the module::
 
-     .. plot:: path/to/plot.py plot_function1
+     .. plotly:: path/to/plot.py plot_function1
 
 2. Included as **inline content** to the directive::
 
@@ -51,7 +51,7 @@ The source code for the plot may be included in one of three ways:
         fig2 = px.scatter(x=[4, 3, 2, 1, 0], y=[0, 1, 4, 9, 16])
 
 Options
--------
+=======
 
 The ``plotly`` directive supports the following options:
 
@@ -94,14 +94,14 @@ The ``plotly`` directive supports the following options:
         using the `plotly_iframe_height` variable in :file:`conf.py`.
     
     camera : xcam, ycam, zcam, xtarget, ytarget, ztarget, xzvec, yzvec, zzvec
-        Specify the camera settings for the current plot.
+        Specify the camera settings for a 3D plot.
 
 Additionally, this directive supports all of the options of the `image`
 directive, except for *target* (since plot will add its own target).  These
 include *alt*, *height*, *width*, *scale*, *align* and *class*.
 
 Configuration options
----------------------
+=====================
 
 The plot directive has the following configuration options:
 
@@ -128,12 +128,17 @@ The plot directive has the following configuration options:
     plotly_formats
         File formats to generate. List of tuples or strings::
 
-            [(suffix, dpi), suffix, ...]
+            [(suffix, scale), suffix, ...]
 
-        that determine the file format and the DPI. For entries whose
-        DPI was omitted, sensible defaults are chosen. When passing from
+        that determine the file format and the scale. For entries whose
+        scale was omitted, sensible defaults are chosen. When passing from
         the command line through sphinx_build the list should be passed as
-        suffix:dpi,suffix:dpi, ...
+        suffix:scale,suffix:scale, ...
+
+        Scale refers to the scale keyword arguments of
+        ``plotly.io.write_image``.
+
+        Default to ``[("png", 1), ("pdf", 1), "html"]``
 
     plotly_html_show_formats
         Whether to show links to the files in HTML.
@@ -160,6 +165,9 @@ The plot directive has the following configuration options:
         processed), returning a modified code. This can be used to extract the
         figure object from custom data classes in order for them to be
         intercepted and rendered by this extension.
+    
+    plotly_size
+        A 2-elements tuple, (width, height), of the output images to generate.
 """
 
 import copy
@@ -322,6 +330,7 @@ def setup(app):
     app.add_config_value("plotly_iframe_height", "500px", True)
     app.add_config_value("plotly_template", None, True)
     app.add_config_value("plotly_intercept_code", None, True)
+    app.add_config_value("plotly_size", None, True)
 
     app.add_config_value("plotly_include_directive_source", None, False)
 
@@ -591,18 +600,18 @@ def run_code(code, code_path, ns=None, function_name=None, fig_vars=None,
 
 
 def get_plot_formats(config):
-    default_dpi = {"html": 0}
+    default_scale = {"png": 1, "pdf": 1, "html": None}
     formats = []
     plot_formats = config.plotly_formats
     for fmt in plot_formats:
         if isinstance(fmt, str):
             if ":" in fmt:
-                suffix, dpi = fmt.split(":")
-                formats.append((str(suffix), int(dpi)))
+                suffix, scale = fmt.split(":")
+                formats.append((str(suffix), float(scale)))
             else:
-                formats.append((fmt, default_dpi.get(fmt, 80)))
+                formats.append((fmt, default_scale.get(fmt, 1)))
         elif isinstance(fmt, (tuple, list)) and len(fmt) == 2:
-            formats.append((str(fmt[0]), int(fmt[1])))
+            formats.append((str(fmt[0]), float(fmt[1])))
         else:
             raise PlotError('invalid image format "%r" in plot_formats' % fmt)
     return formats
@@ -685,6 +694,7 @@ def render_figures(
         plot_context.clear()
 
     close_figs = not context or close_figs
+    size = config.plotly_size
 
     for i, code_piece in enumerate(code_pieces):
 
@@ -704,9 +714,9 @@ def render_figures(
             else:
                 fig = FigureFile("%s_%02d_%02d" % (output_base, i, j), output_dir)
             figures.append(fig)
-            for fmt, dpi in formats:
+            for fmt, scale in formats:
                 try:
-                    save_plotly_figure(fig_obj, fig.filename(fmt))
+                    save_plotly_figure(fig_obj, fig.filename(fmt), size, scale)
                 except Exception as err:
                     raise PlotError(traceback.format_exc()) from err
                 fig.formats.append(fmt)
